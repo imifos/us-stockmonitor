@@ -1,8 +1,11 @@
 """
 USSM - Ultra-Simple Stock Monitor
 
-Uses the tkinter package (Tk interface), Matplotlib and the yahooquery package.
+Small afternoon-project'ish Python script that monitors a list of stock quotes. Displays 5y,2y and 3mo price history,
+auto-circles over all quotes every XX seconds, downloads the data from YAHOO every hour. Uses the tkinter (Tk interface),
+Matplotlib and the yahooquery package, which have to be installed. Configuration at the top of the script itself.
 
+https://github.com/imifos/us-stockmonitor
 by @imifos
 05/2020
 GPL3
@@ -13,7 +16,6 @@ from yahooquery import Ticker
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import datetime
 
-COMPANIES = ["AAPL","MSFT","BA"]
 AUTO_UPDATE_TIMER = 10
 
 #
@@ -26,16 +28,16 @@ class StockSymbolTable(tk.Frame):
 
     def __init__(self, parent, rows):
         columns=3
-        tk.Frame.__init__(self, parent, background="black")
+        tk.Frame.__init__(self, parent, background="gray")
         self._widgets = []
         for row in range(rows):
             current_row = []
             for column in range(columns):
-                if column==1:
-                    w=20
-                else:
-                    w=8
-                label = tk.Label(self, text="", borderwidth=0, width=w)
+                w = 8
+                f='Helvetica 12'
+                if column==0: f+=' bold'
+                if column==1: w=20
+                label = tk.Label(self, fg="black",bg="white",text="", borderwidth=0, width=w,font=f)
                 label.grid(row=row, column=column, sticky="nsew", padx=1, pady=1)
                 current_row.append(label)
             self._widgets.append(current_row)
@@ -78,17 +80,24 @@ class DataModel:
             self.data_cache_time[symbol]=now.hour
 
             t = Ticker(symbol, formatted=True)
-            df2y = t.history(period='2y', interval='1d')
-            df5y = t.history(period='5y', interval='5d')
-            df3m = t.history(period='3mo', interval='1d')
-            price = float(t.price[list(t.price)[0]]['regularMarketPrice']['fmt'])
+            valid=t.validation[list(t.validation)[0]]
+            if valid:
+                df2y = t.history(period='2y', interval='1d')
+                df5y = t.history(period='5y', interval='5d')
+                df3m = t.history(period='3mo', interval='1d')
+                price = float(t.price[list(t.price)[0]]['regularMarketPrice']['fmt'])
+                short_name = t.quote_type[list(t.quote_type)[0]]['shortName']
+            else:
+                df2y=None
+                df5y=None
+                df3m=None
+                price=0
+                short_name="Unknown Ticker"
 
             self.data_df2y_cache[symbol]=df2y
             self.data_df5y_cache[symbol]=df5y
             self.data_df3m_cache[symbol]=df3m
             self.data_price_cache[symbol]=price
-
-            short_name=t.quote_type[list(t.quote_type)[0]]['shortName']
             self.short_name_cache[symbol] = short_name
         else:
             df2y = self.data_df2y_cache.get(symbol)
@@ -121,23 +130,22 @@ class App(tk.Tk):
     current_symbol_index: int
 
     INTERVAL = 15000
-    STOCKS = None
+    TICKERS = None
     DATA = DataModel()
 
-    def __init__(self):
+    def __init__(self,tickers):
         "Setup"
         tk.Tk.__init__(self)
 
-        global COMPANIES
-        self.STOCKS = COMPANIES
+        self.TICKERS = tickers
 
         global AUTO_UPDATE_TIMER
         self.INTERVAL = AUTO_UPDATE_TIMER * 1000
 
-        self.datatable = StockSymbolTable(self, len(self.STOCKS))
+        self.datatable = StockSymbolTable(self, len(self.TICKERS))
         self.datatable.pack(side=tk.LEFT, anchor=tk.NW)
 
-        for index,c in enumerate(self.STOCKS):
+        for index,c in enumerate(self.TICKERS):
             self.datatable.set(0, index, c).bind_click(0, index, self.on_table_click)
             self.datatable.bind_click(1, index, self.on_table_click)
 
@@ -154,7 +162,7 @@ class App(tk.Tk):
     def on_table_click(self, event):
         """Click on stock symbol in table to display selected graph. """
         click_text = event.widget.cget("text")
-        for ndx,symbol in enumerate(self.STOCKS):
+        for ndx,symbol in enumerate(self.TICKERS):
             if symbol == click_text:
                 if ndx != self.current_symbol_index:
                     self.current_symbol_index = ndx
@@ -172,7 +180,7 @@ class App(tk.Tk):
             self.skip_next_update_timer_update-=1
         else:
             self.current_symbol_index += 1
-            if self.current_symbol_index >= len(self.STOCKS):
+            if self.current_symbol_index >= len(self.TICKERS):
                 self.current_symbol_index = 0
             self.update_graph()
         self.after(self.INTERVAL, self.timer_signal)
@@ -196,16 +204,19 @@ class App(tk.Tk):
 
     def get_current_symbol(self):
         ""
-        return self.STOCKS[self.current_symbol_index]
+        return self.TICKERS[self.current_symbol_index]
 
     def build_plot_canvas(self):
         """Gets stock data from the data manager and constructs a TKINTER canvas with plot. """
 
-        price,df3m, df5y, df2y = self.DATA.get_ticker_data(self.get_current_symbol())
+        fig = plt.figure(figsize=(10, 10), dpi=100)
+        canvas=FigureCanvasTkAgg(fig, master=self)
+
+        price,df3m,df5y,df2y = self.DATA.get_ticker_data(self.get_current_symbol())
+        if df3m is None:
+            return canvas
 
         # Overlay the 3 graphs in one Figure
-        fig = plt.figure(figsize=(10, 10), dpi=100)
-
         ax1 = fig.add_subplot(111, label="2y")
         ax1.plot(df2y['high'], color='darkgreen', linewidth=1)
         ax1.set_xlabel("2 Years", color="darkgreen", fontsize=8)
@@ -239,9 +250,25 @@ class App(tk.Tk):
         plt.setp(ax1.yaxis.get_majorticklabels(), fontsize=9, color='darkgreen')
         #plt.autoscale(tight=True)
 
-        return FigureCanvasTkAgg(fig, master=self)
+        return canvas
 
-
+#
+#
+#
 if __name__ == "__main__":
-    app = App()
+
+    import sys
+
+    if len(sys.argv)<2:
+        print("Please pass a file. 1 stock ticker symbol per line.")
+        exit(-1)
+
+    tickers=[]
+    with open(sys.argv[1]) as fp:
+        line = fp.readline()
+        while line:
+            tickers.append(line.rstrip('\r\n'))
+            line = fp.readline()
+
+    app = App(tickers)
     app.mainloop()
