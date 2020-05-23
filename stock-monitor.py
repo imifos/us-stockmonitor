@@ -89,7 +89,7 @@ class DataModel:
                 df2y = t.history(period='2y', interval='1d')
                 df5y = t.history(period='5y', interval='5d')
                 df3m = t.history(period='3mo', interval='1d')
-                price = float(t.price[list(t.price)[0]]['regularMarketPrice']['fmt'])
+                price = float(t.price[list(t.price)[0]]['regularMarketPrice']['fmt'].replace(',',''))
                 short_name = t.quote_type[list(t.quote_type)[0]]['shortName']
             else:
                 df2y = None
@@ -231,24 +231,25 @@ class App(tk.Tk):
         # ax1.yaxis.set_visible(False)
         ax1.axhline(y=price, linewidth=1, color='darkgreen', linestyle=':')
         ax1.margins(0.01)
-
-        ax1.set_title(self.get_current_symbol() + " - " + str(price) + " - " + self.DATA.get_short_name(
-            self.get_current_symbol()))
-        # ax1.text(0.5, 0.5, price, transform=ax1.transAxes, fontsize=40, color='lightgray', alpha=0.7, ha='left',va='center', rotation='0')
-
+        ax1.set_ylim(ymin=0) # must be set AFTER the plot()
+        #
         ax2 = fig.add_subplot(111, label="5y", frame_on=False)
-        ax2.plot(df5y['high'], color='coral', linestyle=':')
         ax2.set_xlabel("5 Years", color="coral", fontsize=8)
         ax2.xaxis.set_label_coords(0.15, 1.015)
         ax2.margins(0.01)
-
+        ax2.plot(df5y['high'], color='coral', linestyle=':')
+        ax2.set_ylim(ymin=0)
+        #
         ax3 = fig.add_subplot(111, label="3mo", frame_on=False)
-        ax3.plot(df3m['high'], color='lightgray', linewidth=1, linestyle=':')
         ax3.set_xlabel("3 Months", color="lightgray", fontsize=8)
         ax3.xaxis.set_label_coords(0.04, 1.015)
-        # ax3.xaxis.set_ticks_position('none')
         ax3.margins(0.01)
-
+        ax3.plot(df3m['high'], color='lightgray', linewidth=1, linestyle=':')
+        ax3.set_ylim(ymin=0)
+        #
+        ax1.set_title(self.get_current_symbol() + " - " + str(price) + " - " + self.DATA.get_short_name(
+            self.get_current_symbol()))
+        #
         plt.setp(ax3.xaxis.get_majorticklabels(), rotation=-90, fontsize=6, color='lightgray')
         plt.setp(ax2.xaxis.get_majorticklabels(), rotation=-90, fontsize=6, color='coral')
         plt.setp(ax1.xaxis.get_majorticklabels(), rotation=-90, fontsize=9, color='darkgreen')
