@@ -35,9 +35,11 @@ class StockSymbolTable(tk.Frame):
             for column in range(columns):
                 w = 8
                 f='Helvetica 12'
+                c = "left_side"
                 if column==0: f+=' bold'
+                if column==0: c="center_ptr"
                 if column==1: w=20
-                label = tk.Label(self, fg="black",bg="white",text="", borderwidth=0, width=w,font=f)
+                label = tk.Label(self, fg="black",bg="white",text="", borderwidth=0, width=w,font=f,cursor=c)
                 label.grid(row=row, column=column, sticky="nsew", padx=1, pady=1)
                 current_row.append(label)
             self._widgets.append(current_row)
