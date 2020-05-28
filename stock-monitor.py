@@ -41,7 +41,7 @@ class StockSymbolTable(tk.Frame):
                 c = "left_side"
                 if column == 0: f += ' bold'
                 if column == 0: c = "center_ptr"
-                if column == 1: w = 20
+                if column == 1: w = 30
                 label = tk.Label(self, fg="black", bg="white", text="", borderwidth=0, width=w, font=f, cursor=c)
                 label.grid(row=row, column=column, sticky="nsew", padx=1, pady=1)
                 current_row.append(label)
@@ -80,15 +80,17 @@ class DataModel:
         cache_time = self.data_cache_time.get(symbol, 99)
         if cache_time != now.hour or x is None:
 
-            print("download")
+            # Download from YAHOO
             self.data_cache_time[symbol] = now.hour
 
             t = Ticker(symbol, formatted=True)
             valid = t.validation[list(t.validation)[0]]
             if valid:
                 df2y = t.history(period='2y', interval='1d')
-                df5y = t.history(period='5y', interval='5d')
+                df5y = t.history(period='5y', interval='1d')
                 df3m = t.history(period='3mo', interval='1d')
+                # 1d interval for 5y is overkill, but needed otherwise the plot will differ from the 2y plot due
+                # to quick variations.
                 price = float(t.price[list(t.price)[0]]['regularMarketPrice']['fmt'].replace(',',''))
                 short_name = t.quote_type[list(t.quote_type)[0]]['shortName']
             else:
@@ -104,11 +106,11 @@ class DataModel:
             self.data_price_cache[symbol] = price
             self.short_name_cache[symbol] = short_name
         else:
+            # Get from Cache
             df2y = self.data_df2y_cache.get(symbol)
             df5y = self.data_df5y_cache.get(symbol)
             df3m = self.data_df3m_cache.get(symbol)
             price = self.data_price_cache.get(symbol)
-            print("cache")
 
         return float(price), df3m, df5y, df2y
 
@@ -228,35 +230,39 @@ class App(tk.Tk):
         ax1.plot(df2y['high'], color='darkgreen', linewidth=1)
         ax1.set_xlabel("2 Years", color="darkgreen", fontsize=8)
         ax1.xaxis.set_label_coords(0.10, 1.015)
-        # ax1.yaxis.set_visible(False)
         ax1.axhline(y=price, linewidth=1, color='darkgreen', linestyle=':')
         ax1.margins(0.01)
-        ax1.set_ylim(ymin=0) # must be set AFTER the plot()
+        plt.setp(ax1.xaxis.get_majorticklabels(), rotation=-90, fontsize=10, color='darkgreen')
+        plt.setp(ax1.yaxis.get_majorticklabels(), fontsize=10, color='darkgreen')
+
         #
         ax2 = fig.add_subplot(111, label="5y", frame_on=False)
         ax2.set_xlabel("5 Years", color="coral", fontsize=8)
+        ax2.yaxis.set_visible(False)
         ax2.xaxis.set_label_coords(0.15, 1.015)
         ax2.margins(0.01)
-        ax2.plot(df5y['high'], color='coral', linestyle=':')
-        ax2.set_ylim(ymin=0)
+        ax2.plot(df5y['high'], linewidth=1,color='coral', linestyle=':')
+        plt.setp(ax2.yaxis.get_majorticklabels(), fontsize=6, color='coral')
+        plt.setp(ax2.xaxis.get_majorticklabels(), rotation=-90, fontsize=6, color='coral')
+        min_value,max_value = ax2.get_ylim() # The max Y value will always be present in the 5 year (max time) chart.
+
         #
         ax3 = fig.add_subplot(111, label="3mo", frame_on=False)
         ax3.set_xlabel("3 Months", color="lightgray", fontsize=8)
+        ax3.yaxis.set_visible(False)
         ax3.xaxis.set_label_coords(0.04, 1.015)
         ax3.margins(0.01)
         ax3.plot(df3m['high'], color='lightgray', linewidth=1, linestyle=':')
-        ax3.set_ylim(ymin=0)
-        #
-        ax1.set_title(self.get_current_symbol() + " - " + str(price) + " - " + self.DATA.get_short_name(
-            self.get_current_symbol()))
-        #
         plt.setp(ax3.xaxis.get_majorticklabels(), rotation=-90, fontsize=6, color='lightgray')
-        plt.setp(ax2.xaxis.get_majorticklabels(), rotation=-90, fontsize=6, color='coral')
-        plt.setp(ax1.xaxis.get_majorticklabels(), rotation=-90, fontsize=9, color='darkgreen')
         plt.setp(ax3.yaxis.get_majorticklabels(), fontsize=6, color='lightgray')
-        plt.setp(ax2.yaxis.get_majorticklabels(), fontsize=6, color='coral')
-        plt.setp(ax1.yaxis.get_majorticklabels(), fontsize=9, color='darkgreen')
-        plt.autoscale(tight=True)
+
+        # Y Axis scaling - all graphs the same, must be done after plot()
+        ax3.set_ylim(bottom=0,top=max_value,auto=False)
+        ax2.set_ylim(bottom=0,top=max_value,auto=False)
+        ax1.set_ylim(bottom=0,top=max_value,auto=False)
+
+        #
+        ax1.set_title(self.get_current_symbol() + " - " + str(price) + " - " + self.DATA.get_short_name(self.get_current_symbol()))
 
         return canvas
 
@@ -265,6 +271,8 @@ class App(tk.Tk):
 #
 #
 if __name__ == "__main__":
+
+    v = tk.TclVersion
 
     import sys
 
