@@ -84,7 +84,7 @@ class DataModel:
             self.data_cache_time[symbol] = now.hour
 
             t = Ticker(symbol, formatted=True)
-            valid = t.validation[list(t.validation)[0]]
+            valid = not "Quote not found" in t.price[symbol]
             if valid:
                 df2y = t.history(period='2y', interval='1d')
                 df5y = t.history(period='5y', interval='1d')
@@ -227,7 +227,7 @@ class App(tk.Tk):
 
         # Overlay the 3 graphs in one Figure
         ax1 = fig.add_subplot(111, label="2y")
-        ax1.plot(df2y['high'], color='darkgreen', linewidth=1)
+        ax1.plot(df2y['high'].values, color='darkgreen', linewidth=1)
         ax1.set_xlabel("2 Years", color="darkgreen", fontsize=8)
         ax1.xaxis.set_label_coords(0.10, 1.015)
         ax1.axhline(y=price, linewidth=1, color='darkgreen', linestyle=':')
@@ -241,7 +241,7 @@ class App(tk.Tk):
         ax2.yaxis.set_visible(False)
         ax2.xaxis.set_label_coords(0.15, 1.015)
         ax2.margins(0.01)
-        ax2.plot(df5y['high'], linewidth=1,color='coral', linestyle=':')
+        ax2.plot(df5y['high'].values, linewidth=1,color='coral', linestyle=':')
         plt.setp(ax2.yaxis.get_majorticklabels(), fontsize=6, color='coral')
         plt.setp(ax2.xaxis.get_majorticklabels(), rotation=-90, fontsize=6, color='coral')
         min_value,max_value = ax2.get_ylim() # The max Y value will always be present in the 5 year (max time) chart.
@@ -252,7 +252,7 @@ class App(tk.Tk):
         ax3.yaxis.set_visible(False)
         ax3.xaxis.set_label_coords(0.04, 1.015)
         ax3.margins(0.01)
-        ax3.plot(df3m['high'], color='lightgray', linewidth=1, linestyle=':')
+        ax3.plot(df3m['high'].values, color='lightgray', linewidth=1, linestyle=':')
         plt.setp(ax3.xaxis.get_majorticklabels(), rotation=-90, fontsize=6, color='lightgray')
         plt.setp(ax3.yaxis.get_majorticklabels(), fontsize=6, color='lightgray')
 
